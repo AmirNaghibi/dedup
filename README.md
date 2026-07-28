@@ -61,11 +61,52 @@ dedup --delete ~/Downloads
 
 ## How It Works
 
+```mermaid
+flowchart LR
+    A[Input Directories] --> B[File Walker]
+    B --> C[Size Filter]
+    C -->|Unique sizes discarded| D[Worker Pool]
+    D -->|Parallel SHA-256| E[Hash Grouping]
+    E --> F{Output Format}
+    F -->|--json| G[JSON]
+    F -->|default| H[Text Report]
+    F -->|--delete| I[Remove Duplicates]
+
+    style A fill:#e1f5fe
+    style D fill:#fff3e0
+    style E fill:#e8f5e9
+```
+
+**Pipeline stages:**
+
 1. **Walk**: Recursively scans all target directories, collecting file metadata
 2. **Size filter**: Groups files by size (files with unique sizes can't be duplicates)
 3. **Hash**: Computes SHA-256 content hashes in parallel for size-matched candidates
 4. **Group**: Files with identical hashes are reported as duplicate groups
 5. **Report**: Results sorted by wasted space (largest groups first)
+
+### Architecture
+
+```mermaid
+flowchart TD
+    subgraph CLI["CLI (main.go)"]
+        Parse[Flag Parsing]
+        Output[Output Formatter]
+    end
+
+    subgraph Scanner["Scanner (scanner.go)"]
+        Walk[Directory Walker]
+        SizeMap[Size Grouping]
+        Pool[Worker Pool<br/>N goroutines]
+        Hash[SHA-256 Hasher]
+    end
+
+    Parse --> Walk
+    Walk --> SizeMap
+    SizeMap --> Pool
+    Pool --> Hash
+    Hash --> Output
+```
 
 ## Performance
 
